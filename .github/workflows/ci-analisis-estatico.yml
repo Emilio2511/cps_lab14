@@ -1,0 +1,41 @@
+name: CI - Análisis Estático Java
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-analyze:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
+
+      - name: Cache de dependencias Maven
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Compilar y ejecutar análisis estático
+        run: mvn -B clean verify
+
+      - name: Subir reportes de análisis
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: reportes-calidad
+          path: |
+            target/checkstyle-result.xml
+            target/spotbugsXml.xml
+            target/pmd.xml
