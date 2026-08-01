@@ -2,94 +2,139 @@ package com.tecsup.labs;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- * Servicio de registro de usuarios con varios problemas de calidad
- * intencionales para el laboratorio.
+ * Servicio de registro de usuarios.
+ * Maneja el registro y validación de nuevos usuarios.
  */
 public class UserRegistrationService {
 
-    // PROBLEMA 1: Campo público y mutable
-    public String lastErrorMessage = "";
+    private static final Logger LOGGER = Logger.getLogger(UserRegistrationService.class.getName());
+    
+    private static final int MINIMUM_PASSWORD_LENGTH = 8;
+    private static final int MINIMUM_USERNAME_LENGTH = 3;
+    private static final int MAXIMUM_USERNAME_LENGTH = 20;
+    
+    private String lastErrorMessage = "";
+    private List<String> users = new ArrayList<>();
 
-    // PROBLEMA 2: Lista sin genéricos
-    private List users = new ArrayList();
+    public String getLastErrorMessage() {
+        return lastErrorMessage;
+    }
 
-    // PROBLEMA 3: Número mágico (debería ser constante con nombre claro)
-    private static final int MIN_PASSWORD_LENGTH = 8;
-
-    // PROBLEMA 4: Constructor con lógica innecesaria
-    public UserRegistrationService() {
-        System.out.println("Constructor llamado");
-        if (users == null) { // Esta condición nunca se cumple
-            users = new ArrayList();
-        }
+    private void setLastErrorMessage(String lastErrorMessage) {
+        this.lastErrorMessage = lastErrorMessage;
     }
 
     /**
-     * Registra un nuevo usuario.
-     * Retorna true si se registra, false en caso contrario.
+     * Registra un nuevo usuario en el sistema.
+     * 
+     * @param username Nombre de usuario (no null, entre 3-20 caracteres)
+     * @param password Contraseña (no null, mínimo 8 caracteres)
+     * @param email Correo electrónico (formato válido)
+     * @return true si el registro es exitoso, false en caso contrario
      */
     public boolean registerUser(String username, String password, String email) {
-        // PROBLEMA 5: Posible NullPointerException
-        if (username.trim().isEmpty()) {
-            lastErrorMessage = "El nombre de usuario está vacío.";
+        // Validar username
+        if (!isValidUsername(username)) {
+            setLastErrorMessage("El nombre de usuario debe tener entre " + 
+                MINIMUM_USERNAME_LENGTH + " y " + MAXIMUM_USERNAME_LENGTH + " caracteres.");
             return false;
         }
 
-        // PROBLEMA 6: Código duplicado (validación de password)
-        if (password == null) {
-            lastErrorMessage = "La contraseña es null.";
+        // Validar password
+        if (!isValidPassword(password)) {
+            setLastErrorMessage("La contraseña debe tener al menos " + 
+                MINIMUM_PASSWORD_LENGTH + " caracteres.");
             return false;
         }
 
-        if (password.length() < MIN_PASSWORD_LENGTH) {
-            lastErrorMessage = "La contraseña es muy corta.";
+        // Validar email
+        if (!isValidEmail(email)) {
+            setLastErrorMessage("El correo electrónico no tiene un formato válido.");
             return false;
         }
 
-        // PROBLEMA 7: Código duplicado intencional
-        if (password.length() < MIN_PASSWORD_LENGTH) {
-            System.out.println("Advertencia: contraseña corta.");
+        // Verificar si el usuario ya existe
+        if (isUserRegistered(username)) {
+            setLastErrorMessage("El usuario '" + username + "' ya está registrado.");
+            return false;
         }
 
-        // PROBLEMA 8: Lógica incorrecta para validar email
-        if (!email.contains("@") && !email.contains(".")) {
-            lastErrorMessage = "El correo electrónico no parece válido.";
-        }
-
-        // PROBLEMA 9: Manejo de excepciones deficiente
+        // Guardar usuario
         try {
             saveUser(username, password, email);
+            LOGGER.log(Level.INFO, "Usuario registrado exitosamente: {0}", username);
+            return true;
+        } catch (IllegalArgumentException e) {
+            setLastErrorMessage("Error de validación: " + e.getMessage());
+            return false;
         } catch (Exception e) {
-            // Capturar Exception general y no registrar nada
-            lastErrorMessage = "Error desconocido al guardar el usuario.";
+            LOGGER.log(Level.SEVERE, "Error al guardar usuario: " + username, e);
+            setLastErrorMessage("Error interno al guardar el usuario.");
             return false;
         }
-
-        // PROBLEMA 10: No se validan usuarios duplicados
-        System.out.println("Usuario registrado: " + username);
-        return true;
     }
 
-    // PROBLEMA 11: Método que lanza Exception genérica
-    private void saveUser(String username, String password, String email) throws Exception {
-        users.add(username); // Solo se guarda el nombre
-        if (username.equals("error")) {
-            throw new Exception("Nombre de usuario no permitido.");
+    private boolean isValidUsername(String username) {
+        if (username == null) {
+            return false;
         }
+        String trimmed = username.trim();
+        return trimmed.length() >= MINIMUM_USERNAME_LENGTH && 
+               trimmed.length() <= MAXIMUM_USERNAME_LENGTH;
     }
 
-    // PROBLEMA 12: Nombre de método poco claro
-    public int x(String s) {
-        if (s == null) {
+    private boolean isValidPassword(String password) {
+        return password != null && password.length() >= MINIMUM_PASSWORD_LENGTH;
+    }
+
+    private boolean isValidEmail(String email) {
+        if (email == null) {
+            return false;
+        }
+        // Validación básica de email
+        return email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    }
+
+    private boolean isUserRegistered(String username) {
+        return users.stream().anyMatch(u -> u.equalsIgnoreCase(username.trim()));
+    }
+
+    private void saveUser(String username, String password, String email) throws Exception {
+        String trimmedUsername = username.trim();
+        
+        if (trimmedUsername.equalsIgnoreCase("error")) {
+            throw new IllegalArgumentException("El nombre de usuario contiene palabras reservadas.");
+        }
+        
+        users.add(trimmedUsername);
+        LOGGER.log(Level.INFO, "Usuario guardado en la base de datos: {0}", trimmedUsername);
+    }
+
+    /**
+     * Obtiene la longitud del string invertido.
+     * 
+     * @param input String a procesar
+     * @return Longitud del string invertido, -1 si el input es null
+     */
+    public int getReversedStringLength(String input) {
+        if (input == null) {
             return -1;
         }
-        // PROBLEMA 13: Uso ineficiente de String
-        String result = "";
-        for (int i = 0; i < s.length(); i++) {
-            result = result + s.charAt(i);
-        }
-        return result.length();
+        // Mejor uso de StringBuilder
+        String reversed = new StringBuilder(input).reverse().toString();
+        return reversed.length();
+    }
+
+    /**
+     * Obtiene la lista de usuarios registrados.
+     * 
+     * @return Lista no modificable de usuarios
+     */
+    public List<String> getUsers() {
+        return new ArrayList<>(users);
     }
 }
